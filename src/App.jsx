@@ -1,9 +1,13 @@
-import { useEffect, useState } from 'react'
-import { calculateFees, fetchMeta } from './api'
+import { useMemo, useState, startTransition } from 'react'
+import { calculateAllPortals, getMeta } from './calculator'
 import ResultsPanel from './components/ResultsPanel'
 
+const INITIAL_META = getMeta()
+const FIRST_PORTAL = INITIAL_META.portals[0]
+const INITIAL_CATEGORY = FIRST_PORTAL?.categories?.[0] || ''
+
 const INITIAL_FORM = {
-  category: '',
+  category: INITIAL_CATEGORY,
   sellingPrice: '',
   costOfMaking: '',
   additionalCost: '',
@@ -14,39 +18,13 @@ const INITIAL_FORM = {
 }
 
 export default function App() {
-  const [meta, setMeta] = useState(null)
-  const [activePortal, setActivePortal] = useState('amazon')
+  const meta = useMemo(() => INITIAL_META, [])
+  const [activePortal, setActivePortal] = useState(FIRST_PORTAL?.id || 'amazon')
   const [form, setForm] = useState(INITIAL_FORM)
-  const [loading, setLoading] = useState(false)
-  const [metaError, setMetaError] = useState('')
   const [calcError, setCalcError] = useState('')
   const [result, setResult] = useState(null)
 
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const data = await fetchMeta()
-        if (cancelled) return
-        setMeta(data)
-        const first = data.portals?.[0]
-        if (first) {
-          setActivePortal(first.id)
-          setForm((f) => ({
-            ...f,
-            category: first.categories?.[0] || '',
-          }))
-        }
-      } catch (err) {
-        if (!cancelled) setMetaError(err.message)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const activeMeta = meta?.portals?.find((p) => p.id === activePortal)
+  const activeMeta = meta.portals.find((p) => p.id === activePortal)
   const categories = activeMeta?.categories || []
 
   function updateField(key, value) {
@@ -57,20 +35,16 @@ export default function App() {
     setForm({
       ...INITIAL_FORM,
       category: categories[0] || '',
-      productGstPercent: '18',
-      weightKg: '0.5',
-      stepLevel: 'standard',
     })
     setResult(null)
     setCalcError('')
   }
 
-  async function onSubmit(e) {
+  function onSubmit(e) {
     e.preventDefault()
     setCalcError('')
-    setLoading(true)
     try {
-      const data = await calculateFees({
+      const data = calculateAllPortals({
         category: form.category,
         sellingPrice: Number(form.sellingPrice),
         costOfMaking: Number(form.costOfMaking) || 0,
@@ -80,12 +54,10 @@ export default function App() {
         weightKg: Number(form.weightKg) || 0.5,
         stepLevel: form.stepLevel,
       })
-      setResult(data)
+      startTransition(() => setResult(data))
     } catch (err) {
       setResult(null)
       setCalcError(err.message)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -103,7 +75,7 @@ export default function App() {
       </header>
 
       <div className="portal-pills" role="tablist" aria-label="Marketplaces">
-        {(meta?.portals || [{ id: 'amazon', name: 'Amazon' }]).map((p) => (
+        {meta.portals.map((p) => (
           <button
             key={p.id}
             type="button"
@@ -133,10 +105,8 @@ export default function App() {
       <section className="card">
         <div className="card__head">
           <h2 className="card__title">Product details</h2>
-          <span className="card__hint">Per unit</span>
+          <span className="card__hint">Per unit · instant</span>
         </div>
-
-        {metaError && <p className="error">{metaError}. Is the API running?</p>}
 
         <form className="form" onSubmit={onSubmit}>
           <label className="field">
@@ -241,7 +211,7 @@ export default function App() {
                 <span className="suffix-input__affix">%</span>
               </div>
               <datalist id="gst-presets">
-                {(meta?.gstPresets || [0, 5, 12, 18, 28]).map((g) => (
+                {meta.gstPresets.map((g) => (
                   <option key={g} value={g} />
                 ))}
               </datalist>
@@ -267,11 +237,7 @@ export default function App() {
                 value={form.stepLevel}
                 onChange={(e) => updateField('stepLevel', e.target.value)}
               >
-                {(meta?.stepLevels || [
-                  { id: 'premium_advanced', label: 'Premium & Advanced' },
-                  { id: 'standard', label: 'Standard' },
-                  { id: 'basic', label: 'Basic' },
-                ]).map((s) => (
+                {meta.stepLevels.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.label}
                   </option>
@@ -283,8 +249,12 @@ export default function App() {
           {calcError && <p className="error">{calcError}</p>}
 
           <div className="actions">
-            <button className="btn btn--primary" type="submit" disabled={loading || !form.category}>
-              {loading ? 'Calculating…' : 'Calculate fees'}
+            <button
+              className="btn btn--primary"
+              type="submit"
+              disabled={!form.category}
+            >
+              Calculate fees
             </button>
             <button className="btn btn--ghost" type="button" onClick={resetForm}>
               Reset
@@ -308,14 +278,8 @@ export default function App() {
       )}
 
       <p className="footer-note">
-        Fees use your Amazon rate cards. GST on fees is 18%. Return % doubles shipping
-        on that share of a 100-unit set (spread per unit). Product GST remittance and
-        ITC on fee GST are included.
-        {result?.source === 'local' || result?.source === 'local-fallback'
-          ? ' Data: local seed.'
-          : result?.source === 'supabase'
-            ? ' Data: Supabase.'
-            : ''}
+        Fees calculate instantly on device. GST on fees is 18%. Return % doubles
+        shipping on that share of a 100-unit set (spread per unit).
       </p>
     </div>
   )
