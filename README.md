@@ -1,16 +1,52 @@
-# React + Vite
+# Tag Fees — Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Mobile-first React PWA for the Amazon fee calculator.
 
-Currently, two official plugins are available:
+## Local
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
+With the API on `localhost:4000`, leave `VITE_API_URL` empty — Vite proxies `/api`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Go live (2 steps)
 
-## Expanding the Oxlint configuration
+The client is static. It needs a **live server URL** via env.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+### 1. Deploy the server first
+
+Repo: [ecomcal-server](https://github.com/blackmattertech/ecomcal-server)
+
+Example (Render / Railway / any Node host):
+
+- Root: repo root  
+- Start: `npm start`  
+- Env (optional): `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `PORT`
+
+Copy the public API URL, e.g. `https://ecomcal-server.onrender.com`
+
+### 2. Deploy this client
+
+Repo: [ecomcal-client](https://github.com/blackmattertech/ecomcal-client)
+
+**Vercel (recommended)**
+
+1. Import `blackmattertech/ecomcal-client`
+2. Framework: Vite
+3. Build: `npm run build` · Output: `dist`
+4. Add env var:
+   - Name: `VITE_API_URL`
+   - Value: `https://YOUR-SERVER-URL` (no trailing slash)
+5. Deploy
+
+**Netlify:** same build/output; set `VITE_API_URL` in Site settings → Environment variables.
+
+### Env
+
+| Variable | Required in prod | Example |
+| --- | --- | --- |
+| `VITE_API_URL` | Yes | `https://ecomcal-server.onrender.com` |
+
+Local: copy `.env.example` → `.env` only if you need to hit a remote API while developing.

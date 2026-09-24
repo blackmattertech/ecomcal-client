@@ -1,0 +1,4 @@
+# SPA fallback for client-side routing
+rewrites:
+  - source: /(.*)
+    destination: /index.html
